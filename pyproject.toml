@@ -1,0 +1,24 @@
+[project]
+name = "goalview"
+version = "1.0.0"
+authors = [
+    { name = "Bals Radu", email = "bals.radu@gmail.com" },
+]
+description = "A package to help visualize and analyze football data."
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/BalsRadu/masters-ml-projects"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ['goalview']

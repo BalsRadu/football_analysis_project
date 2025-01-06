@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from goalvis.bbox import measure_distance, measure_xy_distance
+from goalview.bbox import measure_distance, measure_xy_distance
 
 
 class CameraMovementEstimator:

@@ -3,7 +3,7 @@ from typing import Dict
 import cv2
 from tqdm import tqdm
 
-from goalvis.bbox import get_foot_position, measure_distance
+from goalview.bbox import get_foot_position, measure_distance
 
 
 class SpeedAndDistanceEstimator:

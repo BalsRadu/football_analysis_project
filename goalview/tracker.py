@@ -10,7 +10,7 @@ import torch
 from tqdm import tqdm
 from ultralytics import YOLO
 
-from goalvis.bbox import get_bbox_width, get_center_of_bbox, get_foot_position
+from goalview.bbox import get_bbox_width, get_center_of_bbox, get_foot_position
 
 
 class Tracker:
@@ -128,11 +128,6 @@ class Tracker:
 
             # Convert to supervision detection format
             detections_supervision = sv.Detections.from_ultralytics(detection)
-
-            # # Convert goalkeeper to "player" class
-            # for object_idx, class_id in enumerate(detections_supervision.class_id):
-            #     if cls_names[class_id] == "goalkeeper":
-            #         detections_supervision.class_id[object_idx] = cls_names_inv["player"]
 
             # Track objects
             detections_with_tracks = self.tracker.update_with_detections(detections_supervision)

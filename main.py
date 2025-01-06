@@ -3,20 +3,20 @@ import warnings
 import cv2
 import numpy as np
 
-from goalvis.camera_movement_estimator import CameraMovementEstimator
-from goalvis.player_ball_assigner import PlayerBallAssigner
-from goalvis.speed_and_distance_estimator import SpeedAndDistanceEstimator
-from goalvis.team_assigner import TeamAssigner
-from goalvis.tracker import Tracker
-from goalvis.video import read_video, save_video
-from goalvis.view_transformer import ViewTransformer
+from goalview.camera_movement_estimator import CameraMovementEstimator
+from goalview.player_ball_assigner import PlayerBallAssigner
+from goalview.speed_and_distance_estimator import SpeedAndDistanceEstimator
+from goalview.team_assigner import TeamAssigner
+from goalview.tracker import Tracker
+from goalview.video import read_video, save_video
+from goalview.view_transformer import ViewTransformer
 
 warnings.filterwarnings("ignore")
 
 
 def main() -> None:
     """
-    Main entry point for the Goalvis pipeline. Reads a video,
+    Main entry point for the Goalview pipeline. Reads a video,
     tracks objects, estimates camera movement, transforms positions,
     calculates speeds, assigns teams, determines ball possession,
     draws annotations, and finally saves an output video.
