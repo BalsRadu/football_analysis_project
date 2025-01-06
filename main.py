@@ -25,7 +25,7 @@ def main() -> None:
     video_frames = read_video("data/samples/08fd33_4.mp4")
 
     # Initialize Tracker
-    tracker = Tracker("models/yolo11l.pt")
+    tracker = Tracker("models/yolo5s.pt")
 
     # Get object tracks
     tracks = tracker.get_object_tracks(
@@ -80,7 +80,7 @@ def main() -> None:
     )
 
     # Save final annotated video
-    save_video(output_video_frames, "data/output_videos/output.avi")
+    save_video(output_video_frames, "data/output_videos/output.mp4")
     print("Output video saved successfully.")
 
 if __name__ == "__main__":

@@ -10,8 +10,7 @@ import torch
 from tqdm import tqdm
 from ultralytics import YOLO
 
-from goalvis.bbox import (get_bbox_width, get_center_of_bbox,
-                              get_foot_position)
+from goalvis.bbox import get_bbox_width, get_center_of_bbox, get_foot_position
 
 
 class Tracker:
@@ -108,7 +107,8 @@ class Tracker:
         tracks = {
             "players": [],
             "ball": [],
-            "referees": []
+            "referees": [],
+            "goalkeepers": []
         }
 
         # Convert YOLO detection outputs to ByteTrack-based tracks
@@ -124,14 +124,15 @@ class Tracker:
             tracks["players"].append({})
             tracks["ball"].append({})
             tracks["referees"].append({})
+            tracks["goalkeepers"].append({})
 
             # Convert to supervision detection format
             detections_supervision = sv.Detections.from_ultralytics(detection)
 
-            # Convert goalkeeper to "player" class
-            for object_idx, class_id in enumerate(detections_supervision.class_id):
-                if cls_names[class_id] == "goalkeeper":
-                    detections_supervision.class_id[object_idx] = cls_names_inv["player"]
+            # # Convert goalkeeper to "player" class
+            # for object_idx, class_id in enumerate(detections_supervision.class_id):
+            #     if cls_names[class_id] == "goalkeeper":
+            #         detections_supervision.class_id[object_idx] = cls_names_inv["player"]
 
             # Track objects
             detections_with_tracks = self.tracker.update_with_detections(detections_supervision)
@@ -142,11 +143,17 @@ class Tracker:
                 cls_id = frame_detection[3]
                 track_id = frame_detection[4]
 
-                if cls_id == cls_names_inv["player"]:
+                # For players
+                if cls_names[cls_id] == "player":
                     tracks["players"][frame_num][track_id] = {"bbox": bbox}
 
-                elif cls_id == cls_names_inv["referee"]:
+                # For referees
+                elif cls_names[cls_id] == "referee":
                     tracks["referees"][frame_num][track_id] = {"bbox": bbox}
+
+                # For goalkeepers
+                elif cls_names[cls_id] == "goalkeeper":
+                    tracks["goalkeepers"][frame_num][track_id] = {"bbox": bbox}
 
             # For the ball, we look directly in the original detections
             for frame_detection in detections_supervision:
@@ -330,6 +337,7 @@ class Tracker:
             player_dict = tracks["players"][frame_num]
             ball_dict = tracks["ball"][frame_num]
             referee_dict = tracks["referees"][frame_num]
+            goalkeeper_dict = tracks["goalkeepers"][frame_num]
 
             # Draw players
             for track_id, player in player_dict.items():
@@ -342,6 +350,11 @@ class Tracker:
             # Draw referees
             for _, referee in referee_dict.items():
                 frame_copy = self.draw_ellipse(frame_copy, referee["bbox"], (0, 255, 255))
+
+            # Draw goalkeepers
+            for track_id, keeper in goalkeeper_dict.items():
+                color = keeper.get("keeper_color", (255, 255, 255))
+                frame_copy = self.draw_ellipse(frame_copy, keeper["bbox"], color, track_id)
 
             # Draw ball
             for _, ball in ball_dict.items():

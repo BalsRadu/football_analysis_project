@@ -149,5 +149,4 @@ dmypy.json
 runs/
 *.pkl
 models/
-output_videos/
 football-players-detection-*/
