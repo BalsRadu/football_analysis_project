@@ -121,7 +121,6 @@ class TeamAssigner:
 
         1) Gather the color from each GK detection across all frames.
         2) Filter out GK detections whose color is very close to team colors 
-           (treating them as players instead).
         3) Cluster the remaining GK detections into 2 color groups 
            via KMeans clustering.
         4) Assign the closest centroid color to each GK ID based on Majority Voting.
@@ -170,18 +169,6 @@ class TeamAssigner:
                 if gk_id in tracks["goalkeepers"][frame_num]:
                     bbox = tracks["goalkeepers"][frame_num][gk_id]["bbox"]
                     del tracks["goalkeepers"][frame_num][gk_id]
-
-                    # Decide which team is closer
-                    gk_color = self.get_player_color(frames[frame_num], bbox)
-                    d1 = color_distance(gk_color, self.team_colors[1])
-                    d2 = color_distance(gk_color, self.team_colors[2])
-                    team_id = 1 if d1 <= d2 else 2
-
-                    tracks["players"][frame_num][gk_id] = {
-                        "bbox": bbox,
-                        "team": team_id,
-                        "team_color": self.team_colors[team_id],
-                    }
 
             pbar.update(1)  # Update progress bar for step 1
 
