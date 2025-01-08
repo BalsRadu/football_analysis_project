@@ -114,21 +114,18 @@ class TeamAssigner:
     def assign_goalkeeper_color(self, frames: list[np.ndarray], tracks: dict) -> None:
         """
         Assign unique colors to goalkeepers (GK) while filtering out invalid detections.
-    
+
         This function processes goalkeeper detections across all frames and assigns 
         unique colors to each goalkeeper using a clustering approach. The following 
         steps are executed:
-    
+
         1) Gather the color from each GK detection across all frames.
         2) Filter out GK detections whose color is very close to team colors 
            (treating them as players instead).
-        3) If more than 2 unique GK IDs remain, demote extras to players 
-           (since soccer typically has only 2 goalkeepers).
-        4) Cluster the remaining GK detections (up to 2 IDs) into 2 color groups 
+        3) Cluster the remaining GK detections into 2 color groups 
            via KMeans clustering.
-        5) Assign a temporary cluster label to each remaining GK detection.
-        6) Perform a majority vote per GK ID to consistently assign one cluster color.
-    
+        4) Assign the closest centroid color to each GK ID based on Majority Voting.
+
         :param frames: List of video frames corresponding to each detection.
         :param tracks: Dictionary containing "goalkeepers" and "players" data. 
                        Each frame's "goalkeepers" data maps GK IDs to their bounding 
@@ -137,19 +134,18 @@ class TeamAssigner:
         """
         def color_distance(c1, c2):
             return np.linalg.norm(c1 - c2)
-    
+
         threshold = 40.0  # Distance threshold to discard GK as "player"
         leftover_gk_colors = []
         leftover_gk_refs = []  # Each element: (frame_num, gk_id)
         to_remove = []  # GK detections to be converted into players
-    
+
         steps = [
             "Gather GK detections and filter close colors",
-            "Demote extra GKs to players (if needed)",
             "Cluster GK colors",
             "Assign GK colors consistently",
         ]
-    
+
         with tqdm(total=len(steps), desc="Assigning GK Colors", unit="step") as pbar:
             # 1) Gather all GK detections and filter out those near team colors
             for frame_num, gk_dict in enumerate(tracks["goalkeepers"]):
@@ -157,108 +153,69 @@ class TeamAssigner:
                 for gk_id, info in gk_dict.items():
                     bbox = info["bbox"]
                     gk_color = self.get_player_color(frame, bbox)
-    
+
                     # Distances to the two known team colors
                     dist1 = color_distance(gk_color, self.team_colors[1])
                     dist2 = color_distance(gk_color, self.team_colors[2])
-    
+
                     # If the color is too close to a team color, treat as a normal player
                     if dist1 < threshold or dist2 < threshold:
                         to_remove.append((frame_num, gk_id))
                     else:
                         leftover_gk_colors.append(gk_color)
                         leftover_gk_refs.append((frame_num, gk_id))
-    
+
             # Convert "false GK" detections into players
             for frame_num, gk_id in to_remove:
                 if gk_id in tracks["goalkeepers"][frame_num]:
                     bbox = tracks["goalkeepers"][frame_num][gk_id]["bbox"]
                     del tracks["goalkeepers"][frame_num][gk_id]
-    
+
                     # Decide which team is closer
                     gk_color = self.get_player_color(frames[frame_num], bbox)
                     d1 = color_distance(gk_color, self.team_colors[1])
                     d2 = color_distance(gk_color, self.team_colors[2])
                     team_id = 1 if d1 <= d2 else 2
-    
+
                     tracks["players"][frame_num][gk_id] = {
                         "bbox": bbox,
                         "team": team_id,
                         "team_color": self.team_colors[team_id],
                     }
-    
+
             pbar.update(1)  # Update progress bar for step 1
-    
-            # 2) Demote extra GKs if more than 2 remain
-            unique_gk_ids = set(gk_id for _, gk_id in leftover_gk_refs)
-            if len(unique_gk_ids) > 2:
-                frames_count = defaultdict(int)
-                for _, gk_id in leftover_gk_refs:
-                    frames_count[gk_id] += 1
-    
-                top_two = sorted(unique_gk_ids, key=lambda gid: frames_count[gid], reverse=True)[:2]
-                to_remove_extra = [gid for gid in unique_gk_ids if gid not in top_two]
-    
-                new_leftover_colors = []
-                new_leftover_refs = []
-                for color_vec, (frame_num, gk_id) in zip(leftover_gk_colors, leftover_gk_refs):
-                    if gk_id in to_remove_extra:
-                        if gk_id in tracks["goalkeepers"][frame_num]:
-                            bbox = tracks["goalkeepers"][frame_num][gk_id]["bbox"]
-                            del tracks["goalkeepers"][frame_num][gk_id]
-    
-                            d1 = color_distance(color_vec, self.team_colors[1])
-                            d2 = color_distance(color_vec, self.team_colors[2])
-                            team_id = 1 if d1 <= d2 else 2
-                            tracks["players"][frame_num][gk_id] = {
-                                "bbox": bbox,
-                                "team": team_id,
-                                "team_color": self.team_colors[team_id],
-                            }
-                    else:
-                        new_leftover_colors.append(color_vec)
-                        new_leftover_refs.append((frame_num, gk_id))
-    
-                leftover_gk_colors = new_leftover_colors
-                leftover_gk_refs = new_leftover_refs
-    
-            if len(leftover_gk_colors) < 2:
-                pbar.update(len(steps) - pbar.n)  # Complete remaining progress
-                return
-    
-            pbar.update(1)  # Update progress bar for step 2
-    
-            # 3) Cluster GK colors
+
+            # 2) Cluster GK colors
             leftover_gk_colors_arr = np.array(leftover_gk_colors)
             gk_kmeans = KMeans(n_clusters=2, init="k-means++", n_init=10, random_state=42)
             gk_kmeans.fit(leftover_gk_colors_arr)
-    
+
+            centroids = gk_kmeans.cluster_centers_
+
+            # Assign the closest centroid to each GK ID
+            gk_centroid_assignments = defaultdict(list)
             for i, (frame_num, gk_id) in enumerate(leftover_gk_refs):
-                cluster_label = gk_kmeans.predict([leftover_gk_colors[i]])[0]
-                tracks["goalkeepers"][frame_num][gk_id]["temp_cluster"] = cluster_label
-    
-            pbar.update(1)  # Update progress bar for step 3
-    
-            # 4) Assign final GK colors
-            cluster_counts_per_id = defaultdict(lambda: [0, 0])
-            for frame_num, gk_dict in enumerate(tracks["goalkeepers"]):
-                for gk_id, info in gk_dict.items():
-                    if "temp_cluster" in info:
-                        c = info["temp_cluster"]
-                        cluster_counts_per_id[gk_id][c] += 1
-    
+                gk_color = leftover_gk_colors[i]
+                closest_centroid_idx = np.argmin([color_distance(gk_color, centroid) for centroid in centroids])
+                gk_centroid_assignments[gk_id].append((closest_centroid_idx, frame_num))
+
+            pbar.update(1)  # Update progress bar for step 2
+
+            # 3) Assign final GK colors based on closest centroid
             final_cluster_for_id = {}
-            for gk_id, counts in cluster_counts_per_id.items():
-                final_cluster_for_id[gk_id] = 0 if counts[0] >= counts[1] else 1
-    
+            for gk_id, assignments in gk_centroid_assignments.items():
+                # Majority vote for the closest centroid
+                cluster_votes = [assignment[0] for assignment in assignments]
+                final_cluster_for_id[gk_id] = max(set(cluster_votes), key=cluster_votes.count)
+
+            # Update GK colors in tracks
             for frame_num, gk_dict in enumerate(tracks["goalkeepers"]):
                 for gk_id, info in gk_dict.items():
                     if gk_id in final_cluster_for_id:
                         chosen_cluster = final_cluster_for_id[gk_id]
-                        info["keeper_color"] = gk_kmeans.cluster_centers_[chosen_cluster].tolist()
-                        info.pop("temp_cluster", None)
-    
-            pbar.update(1)  # Update progress bar for step 4
+                        info["keeper_color"] = centroids[chosen_cluster].tolist()
+
+            pbar.update(1)  # Update progress bar for step 3
 
 
     def assign_player_teams(

@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 
-from goalvis.bbox import get_center_of_bbox, measure_distance
+from goalview.bbox import get_center_of_bbox, measure_distance
 
 
 class PlayerBallAssigner:
